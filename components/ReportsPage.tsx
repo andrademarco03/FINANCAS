@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Transaction, TransactionType } from '../types';
 import ExpenseChart from './ExpenseChart';
@@ -10,20 +9,24 @@ interface ReportsPageProps {
 }
 
 const ReportsPage: React.FC<ReportsPageProps> = ({ transactions }) => {
-  const today = new Date().toISOString().split('T')[0];
-  const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+  // FIX: Use local timezone date
+  const today = new Date().toLocaleDateString('en-CA');
+  
+  // Get first day of current month in local time
+  const date = new Date();
+  const firstDay = new Date(date.getFullYear(), date.getMonth(), 1).toLocaleDateString('en-CA');
 
-  const [startDate, setStartDate] = useState<string>(firstDayOfMonth);
+  const [startDate, setStartDate] = useState<string>(firstDay);
   const [endDate, setEndDate] = useState<string>(today);
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
 
   useEffect(() => {
     const filtered = transactions.filter(t => {
       const transactionDate = new Date(t.date);
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      end.setDate(end.getDate() + 1); // Include the end date itself
-      return transactionDate >= start && transactionDate < end;
+      // Create date objects from input strings (which are YYYY-MM-DD) treating them as local midnight
+      // We can simply compare string values for YYYY-MM-DD if we are careful, but Date objects are safer
+      // Use simple string comparison for date ranges to avoid timezone offset issues completely with YYYY-MM-DD
+      return t.date >= startDate && t.date <= endDate;
     });
     setFilteredTransactions(filtered);
   }, [transactions, startDate, endDate]);
@@ -44,11 +47,11 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ transactions }) => {
     doc.setFontSize(18);
     doc.text('Relatório Financeiro', 14, 22);
     doc.setFontSize(11);
-    doc.text(`Período: ${new Date(startDate).toLocaleDateString('pt-BR')} a ${new Date(endDate).toLocaleDateString('pt-BR')}`, 14, 30);
+    doc.text(`Período: ${new Date(startDate + 'T00:00').toLocaleDateString('pt-BR')} a ${new Date(endDate + 'T00:00').toLocaleDateString('pt-BR')}`, 14, 30);
 
     const tableColumn = ["Data", "Descrição", "Tipo", "Categoria", "Valor"];
     const tableRows = filteredTransactions.map(t => [
-      new Date(t.date).toLocaleDateString('pt-BR'),
+      new Date(t.date + 'T00:00').toLocaleDateString('pt-BR'), // Force local time parsing
       t.description,
       getTransactionTypeLabel(t.type),
       t.category,
@@ -75,7 +78,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ transactions }) => {
     const csvRows = filteredTransactions.map(t => {
       const amountPrefix = t.type === TransactionType.INCOME ? '+' : '-';
       return [
-        new Date(t.date).toLocaleDateString('pt-BR'),
+        new Date(t.date + 'T00:00').toLocaleDateString('pt-BR'),
         `"${t.description.replace(/"/g, '""')}"`, // Handle commas and quotes in description
         `"${getTransactionTypeLabel(t.type)}"`,
         `"${t.category}"`,
@@ -183,7 +186,7 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ transactions }) => {
                     .map((transaction) => (
                       <tr key={transaction.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {new Date(transaction.date).toLocaleDateString('pt-BR')}
+                          {new Date(transaction.date + 'T00:00').toLocaleDateString('pt-BR')}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {transaction.description}

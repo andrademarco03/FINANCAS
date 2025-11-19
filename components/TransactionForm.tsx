@@ -13,7 +13,9 @@ interface TransactionFormProps {
 }
 
 const TransactionForm: React.FC<TransactionFormProps> = ({ onSave, onCancel, editingTransaction, goals }) => {
-  const today = new Date().toISOString().split('T')[0];
+  // FIX: Use local timezone date instead of UTC to prevent date shift errors
+  const today = new Date().toLocaleDateString('en-CA'); // Returns YYYY-MM-DD in local time
+  
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState<number>(0);
   const [date, setDate] = useState(today);

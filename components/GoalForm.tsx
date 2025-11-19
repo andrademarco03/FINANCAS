@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Goal } from '../types';
 import { v4 as uuidv4 } from 'uuid';
@@ -11,7 +10,9 @@ interface GoalFormProps {
 }
 
 const GoalForm: React.FC<GoalFormProps> = ({ onSave, onCancel, editingGoal }) => {
-  const today = new Date().toISOString().split('T')[0];
+  // FIX: Use local timezone date
+  const today = new Date().toLocaleDateString('en-CA');
+  
   const [name, setName] = useState('');
   const [targetAmount, setTargetAmount] = useState<number>(0);
   const [currentAmount, setCurrentAmount] = useState<number>(0);

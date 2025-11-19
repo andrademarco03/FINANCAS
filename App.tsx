@@ -15,16 +15,12 @@ type ActiveSection = 'dashboard' | 'transactions' | 'goals' | 'reports';
 const App: React.FC = () => {
   const [activeSection, setActiveSection] = useState<ActiveSection>('dashboard');
   
-  // CRITICAL FIX: Lazy initialization ensures we load from LocalStorage BEFORE the initial render.
-  // This prevents the 'save' effects from overwriting existing data with empty arrays on mount.
+  // Lazy initialization ensures we load from LocalStorage BEFORE the initial render.
   const [transactions, setTransactions] = useState<Transaction[]>(() => getTransactions());
   const [goals, setGoals] = useState<Goal[]>(() => getGoals());
   
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
-
-  // Removed the useEffect that loaded data on mount, as it caused a race condition with the save effects.
-  // Data is now loaded synchronously during state initialization.
 
   // Save transactions to localStorage whenever they change
   useEffect(() => {
@@ -35,6 +31,58 @@ const App: React.FC = () => {
   useEffect(() => {
     saveGoals(goals);
   }, [goals]);
+
+  // --- Backup & Restore Features ---
+  const handleExportData = () => {
+    const data = {
+      transactions,
+      goals,
+      exportedAt: new Date().toISOString(),
+      version: '1.0'
+    };
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const href = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = href;
+    link.download = `backup_financas_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleImportData = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const parsed = JSON.parse(event.target?.result as string);
+        let loadedTransactions = 0;
+        let loadedGoals = 0;
+
+        if (parsed.transactions && Array.isArray(parsed.transactions)) {
+          setTransactions(parsed.transactions);
+          loadedTransactions = parsed.transactions.length;
+        }
+        if (parsed.goals && Array.isArray(parsed.goals)) {
+          setGoals(parsed.goals);
+          loadedGoals = parsed.goals.length;
+        }
+        
+        alert(`Backup restaurado com sucesso!\n\n${loadedTransactions} transações carregadas.\n${loadedGoals} metas carregadas.`);
+        setActiveSection('dashboard');
+      } catch (err) {
+        console.error(err);
+        alert('Erro ao ler arquivo de backup. Verifique se é um arquivo .json válido.');
+      }
+      // Reset file input
+      e.target.value = '';
+    };
+    reader.readAsText(file);
+  };
+  // --------------------------------
 
   // Goal handlers
   const handleAddOrUpdateGoal = useCallback((goal: Goal) => {
@@ -98,7 +146,6 @@ const App: React.FC = () => {
 
   const handleDeleteTransaction = useCallback((id: string) => {
     if (window.confirm('Tem certeza de que deseja excluir esta transação?')) {
-      // Optional: Could also ask to revert money from linked goal here, but kept simple for now.
       setTransactions((prevTransactions) => prevTransactions.filter((t) => t.id !== id));
       setEditingTransaction(null);
     }
@@ -107,7 +154,6 @@ const App: React.FC = () => {
   const handleEditTransaction = useCallback((transaction: Transaction) => {
     setEditingTransaction(transaction);
     setActiveSection('transactions');
-    // Scroll to top to ensure user sees the form
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [setActiveSection]);
 
@@ -125,7 +171,6 @@ const App: React.FC = () => {
   const handleEditGoal = useCallback((goal: Goal) => {
     setEditingGoal(goal);
     setActiveSection('goals');
-    // Scroll to top to ensure user sees the form
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [setActiveSection]);
 
@@ -177,7 +222,12 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      <Header onNavigate={setActiveSection} activeSection={activeSection} />
+      <Header 
+        onNavigate={setActiveSection} 
+        activeSection={activeSection} 
+        onExport={handleExportData}
+        onImport={handleImportData}
+      />
       <main className="flex-grow container mx-auto p-4 sm:p-6 lg:p-8 mt-4">
         {renderSection()}
       </main>
